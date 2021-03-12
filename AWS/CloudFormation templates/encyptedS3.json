@@ -1,0 +1,195 @@
+{
+    "Parameters": {
+        "EFSVOLUME": {
+            "Type": "String",
+            "Description": "Name to be used for the EFS Volume."
+        },
+        "PrivateSubnet0": {
+            "Type": "String",
+            "Description": "Subnet Id for PrivateSubnet0"
+        },
+        "PrivateSubnet1": {
+            "Type": "String",
+            "Description": "Subnet Id for PrivateSubnet1"
+        },
+        "PrivateSubnet2": {
+            "Type": "String",
+            "Description": "Subnet Id for PrivateSubnet2"
+        },
+        "Vpc": {
+            "Type": "String",
+            "Description": "VPC Id"
+        },
+        "EFSMOUNT": {
+            "Type": "String",
+            "Description": "Linux mount point for the EFS Volume."
+        },
+        "SECGROUPCIDRIP": {
+            "Type": "String",
+            "Description": "Security Group."
+        },
+        "KEYID": {
+            "Type": "String",
+            "Description": "KSM Key ID for Encryption."
+        }
+    },
+    "Resources": {
+        "EFSFileSystemEFS": {
+            "Type": "AWS::EFS::FileSystem",
+            "Properties": {
+                "PerformanceMode": "generalPurpose",
+                "Encrypted": true,
+                "KmsKeyId": {
+                    "Ref": "KEYID"
+                },
+                "FileSystemTags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "EFSVOLUME"
+                        }
+                    }
+                ]
+            }
+        },
+        "EFSMountTargetEFS": {
+            "Type": "AWS::EFS::MountTarget",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "PrivateSubnet0"
+                },
+                "FileSystemId": {
+                    "Ref": "EFSFileSystemEFS"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "EFSMountTargetSecurityGroupEFS"
+                    }
+                ]
+            }
+        },
+        "EFSMountTargetSecurityGroupEFS": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "SecurityGroupIngress": [
+                    {
+                        "ToPort": "2049",
+                        "IpProtocol": "tcp",
+                        "FromPort": "2049",
+                        "CidrIp": {
+                            "Ref": "SECGROUPCIDRIP"
+                        }
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "Vpc"
+                },
+                "GroupDescription": "Security group for EFS mount target DRXsapmnt",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Join": [
+                                "-",
+                                [
+                                    {
+                                        "Ref": "EFSVOLUME"
+                                    },
+                                    {
+                                        "Ref": "EFSMOUNT"
+                                    }
+                                ]
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "EFSMountTargetEFSF": {
+            "Type": "AWS::EFS::MountTarget",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "PrivateSubnet1"
+                },
+                "FileSystemId": {
+                    "Ref": "EFSFileSystemEFS"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "EFSMountTargetSecurityGroupEFS"
+                    }
+                ]
+            }
+        },
+        "EFSMountTargetEFSG": {
+            "Type": "AWS::EFS::MountTarget",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "PrivateSubnet2"
+                },
+                "FileSystemId": {
+                    "Ref": "EFSFileSystemEFS"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "EFSMountTargetSecurityGroupEFS"
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "SecurityGroup": {
+            "Export": {
+                "Name": "EFSMountTargetSecurityGroupEFS"
+            },
+            "Description": "EFS Security Group",
+            "Value": {
+                "Ref": "EFSMountTargetSecurityGroupEFS"
+            }
+        },
+        "EFSMountTargetSecurityGroupEFS": {
+            "Value": {
+                "Ref": "EFSMountTargetSecurityGroupEFS"
+            }
+        },
+        "EFSFileSystemEFS": {
+            "Value": {
+                "Ref": "EFSFileSystemEFS"
+            }
+        },
+        "FileSystem": {
+            "Export": {
+                "Name": "EFSFileSystemEFS"
+            },
+            "Description": "EFS FileSystem",
+            "Value": {
+                "Ref": "EFSFileSystemEFS"
+            }
+        },
+        "MountTarget": {
+            "Export": {
+                "Name": "EFSMountTargetEFSF"
+            },
+            "Description": "EFS Mount Target",
+            "Value": {
+                "Ref": "EFSMountTargetEFSF"
+            }
+        },
+        "EFSMountTargetEFSF": {
+            "Value": {
+                "Ref": "EFSMountTargetEFSF"
+            }
+        },
+        "EFSMountTargetEFS": {
+            "Value": {
+                "Ref": "EFSMountTargetEFS"
+            }
+        },
+        "EFSMountTargetEFSG": {
+            "Value": {
+                "Ref": "EFSMountTargetEFSG"
+            }
+        }
+    }
+}
