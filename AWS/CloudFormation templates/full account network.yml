@@ -1,0 +1,444 @@
+Description:
+  Diego Marciano
+  Deploys required components to run a double network account
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resources
+    Type: String
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this network
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for this network
+    Type: String
+    Default: 10.0.0.0/24
+  PublicSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for this network
+    Type: String
+    Default: 10.0.1.0/24
+  PrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for this network
+    Type: String
+    Default: 10.0.2.0/24
+  PrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for this network
+    Type: String
+    Default: 10.0.3.0/24
+  WebServerInstanceType:
+    Description: Please enter the IP range (CIDR notation) for this network
+    Type: String
+    Default: t2.micro
+  BastionInstanceType:
+    Description: Please enter the IP range (CIDR notation) for this network
+    Type: String
+    Default: t2.micro
+  UdagramDesiredCapacity:
+    Description: AutoScaling group desired size
+    Type: String
+    Default: 1
+  UdagramMinCapacity:
+    Description: AutoScaling group min size
+    Type: String
+    Default: 1
+  UdagramMaxCapacity:
+    Description: AutoScaling group max size
+    Type: String
+    Default: 1
+Resources:
+  ###### Networking
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+          Value: !Ref EnvironmentName
+  IGW1:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref IGW1
+      VpcId: !Ref VPC
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+  NatGateway1EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} NatGateway1 EIP (AZ2)
+  NatGateway2EIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} NatGateway2 EIP (AZ2)
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway2EIP.AllocationId
+      SubnetId: !Ref PublicSubnet2
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW1
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+  DefaultPrivateRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway1
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+  DefaultPrivateRoute2:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway2
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+  #### Servers
+  ALB1SecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to ALB1
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+  WebServerSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our hosts and ssh from local only
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref VpcCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref VpcCIDR
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+  BastionSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow ssh to our hosts from internet
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+  UdacityS3ReadOnlyEC2:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: 'Allow'
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Description: "Udagram S3 Readonly role"
+      Policies: 
+        - PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - Effect: 'Allow'
+                Action: 
+                  - "s3:Get*"
+                  - "s3:List*"
+                Resource: "*"
+          PolicyName: "UdacityS3ReadOnlyEC2-Policy"
+      RoleName: "UdacityS3ReadOnlyEC2"
+  ProfileWithRolesForOurApp:
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      Roles:
+        - Ref: UdacityS3ReadOnlyEC2
+  WebAppLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update -y
+          apt-get install apache2 -y
+          systemctl start apache2.service
+          cd /var/www/html
+          echo "Udacity Demo Web Server Up and Running!" > index.html
+      ImageId: ami-01b043d807a9122f7
+      IamInstanceProfile: !Ref ProfileWithRolesForOurApp
+      SecurityGroups:
+      - Ref: WebServerSecGroup
+      InstanceType: !Ref WebServerInstanceType
+      BlockDeviceMappings:
+      - DeviceName: "/dev/sdk"
+        Ebs:
+          VolumeSize: '10'
+  WebAppTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 35
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 30
+      HealthyThresholdCount: 2
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !Ref VPC
+  WebAppLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+      - !Ref PublicSubnet1
+      - !Ref PublicSubnet2
+      SecurityGroups:
+      - !Ref ALB1SecGroup
+  Listener:
+      Type: AWS::ElasticLoadBalancingV2::Listener
+      Properties:
+        DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            !Ref WebAppTargetGroup
+        LoadBalancerArn:
+          !Ref WebAppLB
+        Port: '80'
+        Protocol: HTTP
+  ALBListenerRule:
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+      Properties:
+        Actions:
+        - Type: forward
+          TargetGroupArn: !Ref 'WebAppTargetGroup'
+        Conditions:
+        - Field: path-pattern
+          Values: [/]
+        ListenerArn: !Ref 'Listener'
+        Priority: 1
+  UdagramASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties: 
+      AutoScalingGroupName: !Sub ${EnvironmentName}-Udagram
+      DesiredCapacity: !Ref UdagramDesiredCapacity
+      HealthCheckGracePeriod: 300
+      HealthCheckType: "EC2"
+      LaunchConfigurationName: !Ref WebAppLaunchConfig
+      MaxSize: !Ref UdagramMaxCapacity
+      MinSize: !Ref UdagramMinCapacity
+      TargetGroupARNs: 
+        - !Ref WebAppTargetGroup
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Environment
+          Value: !Sub ${EnvironmentName}
+          PropagateAtLaunch: "true"
+        - Key: App
+          Value: "Udagram"
+          PropagateAtLaunch: "true"
+        - Key: Name
+          Value: "UdagramNode"
+          PropagateAtLaunch: "true"
+  BastionHost: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: "ami-01b043d807a9122f7"
+      KeyName: "kp-Linux"
+      InstanceType: !Ref BastionInstanceType
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sdk"
+          Ebs:
+            VolumeSize: '10'
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: 0
+          SubnetId: !Ref PublicSubnet1
+          GroupSet:
+            - Ref: BastionSecGroup
+Outputs: 
+  VPC:
+    Description: A reference to the created VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VPCID
+  VPCPublicRouteTable:
+    Description: Public Routing
+    Value: !Ref PublicRouteTable
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB-RT
+  VPCPrivateRouteTable1:
+    Description: Public Routing
+    Value: !Ref PrivateRouteTable1
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-RT
+  VPCPrivateRouteTable2:
+    Description: Public Routing
+    Value: !Ref PrivateRouteTable2
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI2-RT
+  PublicSubnets:
+    Description: A list of public subnets
+    Value: !Join [ ",", [ !Ref PublicSubnet1, !Ref PublicSubnet2 ] ]
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB-NETS
+  PrivateSubnets:
+    Description: A list of private subnets
+    Value: !Join [ ",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2 ] ]
+    Export:
+      Name: !Sub ${EnvironmentName}-PRIV-NETS
+  PublicSubnet1:
+    Description: A reference to the public subnet in the 1st AZ
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB1-SN
+  PublicSubnet2:
+    Description: A reference to the public subnet in the 2nd AZ
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB2-SN
+  PrivateSubnet1:
+    Description: A reference to the private subnet in the 1st AZ
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-SN
+  PrivateSubnet2:
+    Description: A reference to the private subnet in the 2nd AZ
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI2-SN
+  ALB1Endpoint:
+    Description: ALB1 Endpoint URL
+    Value: !Join [ "://", [ "http", Fn::GetAtt: [ "WebAppLB", "DNSName" ] ] ]
+    Export:
+      Name: !Sub ${EnvironmentName}-ALB1Endpoint
+  BastionPublicDNSName:
+    Description: Bastion Public DNS name for access
+    Value: 
+      Fn::GetAtt: [ "BastionHost", "PublicDnsName" ]
+    Export:
+      Name: !Sub ${EnvironmentName}-BastionPublicDNSName
+

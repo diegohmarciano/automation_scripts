@@ -1,0 +1,34 @@
+[
+    {
+        "ParameterKey": "EFSVOLUME",
+        "ParameterValue": "migrationEFS"
+    },
+    {
+        "ParameterKey": "PrivateSubnet0",
+        "ParameterValue": "subnet-12354ee34b2788"
+    },
+    {
+        "ParameterKey": "PrivateSubnet1",
+        "ParameterValue": "subnet-543213aa4b2788"
+    },
+    {
+        "ParameterKey": "PrivateSubnet2",
+        "ParameterValue": "subnet-12345ed34b2788"
+    },
+    {
+        "ParameterKey": "Vpc",
+        "ParameterValue": "vpc-0011116fd8b5216f8"
+    },
+    {
+        "ParameterKey": "EFSMOUNT",
+        "ParameterValue": "migrationEFS"
+    },
+    {
+        "ParameterKey": "SECGROUPCIDRIP",
+        "ParameterValue": "10.0.0.0/8"
+    },
+    {
+        "ParameterKey": "KEYID",
+        "ParameterValue": "aabbccdd-8d50-43f8-bc0d-aabbccddeeff"
+    }
+]
