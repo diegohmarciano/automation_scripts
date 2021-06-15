@@ -87,7 +87,7 @@ def parseTagsCsv(csvFile):
                 logger.error(f"invalid record {record} in line {csvreader.line_num}")
     return ec2Instances
             
-def validateTags(client, ec2InstancesList):
+def validateTags(client, awsTags, ec2Instances):
     '''Validates the tags of a list of EC2 instances, should print a list of all deviations.
     '''
     logging.error("validateTags not yet implemented")
@@ -112,4 +112,4 @@ if __name__=="__main__":
     elif ( args.updatetags ):
             [updateInstanceTags(client, ec2Instance, args.dryrun) for ec2Instance in parseTagsCsv(args.updatetags).values()]
     elif ( args.validatetags ):
-        validateTags(client, getTags(), )
+        validateTags(client, getTags(), parseTagsCsv(args.validatetags))
