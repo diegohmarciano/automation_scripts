@@ -69,6 +69,23 @@ def getTags():
 def printTags(ec2Instances):
     [[logger.info(f'"{instance.get_instanceId()}","{tag.get_key()}","{tag.get_value()}"') for tag in instance.get_tags()] for instance in ec2Instances.values()]
     return False
+
+def parseTagsCsv(csvFile):
+    ec2Instances = {}
+    with open(csvFile, newline='') as fp:
+        csvreader = csv.reader(fp, quotechar='"', delimiter=',',quoting=csv.QUOTE_ALL, skipinitialspace=True)
+        for record in csvreader:
+            if ( len(record)==3 ):
+                instanceId = record[0]
+                tagName = record[1]
+                tagValue = record[2]
+                if ( instanceId in ec2Instances ):
+                    ec2Instances[instanceId].add_tag(EC2Tag(tagName, tagValue))
+                else:
+                    ec2Instances[instanceId] = EC2Instance(instanceId, [EC2Tag(tagName, tagValue)])
+            elif ( len(record) > 0 ):
+                logger.error(f"invalid record {record} in line {csvreader.line_num}")
+    return ec2Instances
             
 def validateTags(client, ec2InstancesList):
     '''Validates the tags of a list of EC2 instances, should print a list of all deviations.
@@ -89,25 +106,10 @@ if __name__=="__main__":
     group.add_argument("-vt", "--validatetags", type=str, help="Provide a CSV file and validate all instance tags based on the file, informs only deviations")
     args = parser.parse_args()
 
-    ec2Instances = {} #Empty dict of instances
-
     client = boto3.client('ec2')
     if ( args.gettags ):
         printTags(getTags())
     elif ( args.updatetags ):
-        with open(args.updatetags, newline='') as fp:
-            csvreader = csv.reader(fp, quotechar='"', delimiter=',',quoting=csv.QUOTE_ALL, skipinitialspace=True)
-            for record in csvreader:
-                if ( len(record)==3 ):
-                    instanceId = record[0]
-                    tagName = record[1]
-                    tagValue = record[2]
-                    if ( instanceId in ec2Instances ):
-                        ec2Instances[instanceId].add_tag(EC2Tag(tagName, tagValue))
-                    else:
-                        ec2Instances[instanceId] = EC2Instance(instanceId, [EC2Tag(tagName, tagValue)])
-                elif ( len(record) > 0 ):
-                    print(f"invalid record {record}")
-            [updateInstanceTags(client, ec2Instance, args.dryrun) for ec2Instance in ec2Instances.values()]
+            [updateInstanceTags(client, ec2Instance, args.dryrun) for ec2Instance in parseTagsCsv(args.updatetags).values()]
     elif ( args.validatetags ):
-        validateTags(client, "ec2InstancesList")
+        validateTags(client, getTags(), )
