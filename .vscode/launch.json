@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "instance-tagger: get tags",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-gt"]
+        },{
+            "name": "instance-tagger: update tags dry run",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-ut","AWS/Instance Tagger/instance-tags-nonsap.csv"]
+        },{
+            "name": "instance-tagger: validate tags",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-vt","AWS/Instance Tagger/instance-tags-nonsap.csv"]
+        }
+    ]
+}

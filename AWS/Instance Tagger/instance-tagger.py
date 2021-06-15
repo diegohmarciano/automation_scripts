@@ -19,6 +19,9 @@ class EC2Tag:
         return {'Key':self.Key,'Value': self.Value}
     def __repr__(self):
         return f"{{'Key': {self.Key}','Value': '{self.Value}'}}"
+    def __eq__(self, other):
+        return self.Key == other.Key and self.Value == other.Value
+
 
 class EC2Instance:
     def __init__(self, instanceId, tags=[]):
@@ -67,7 +70,7 @@ def getTags():
     return ec2Instances
 
 def printTags(ec2Instances):
-    [[logger.info(f'"{instance.get_instanceId()}","{tag.get_key()}","{tag.get_value()}"') for tag in instance.get_tags()] for instance in ec2Instances.values()]
+    [[logging.info(f'"{instance.get_instanceId()}","{tag.get_key()}","{tag.get_value()}"') for tag in instance.get_tags()] for instance in ec2Instances.values()]
     return False
 
 def parseTagsCsv(csvFile):
@@ -84,13 +87,22 @@ def parseTagsCsv(csvFile):
                 else:
                     ec2Instances[instanceId] = EC2Instance(instanceId, [EC2Tag(tagName, tagValue)])
             elif ( len(record) > 0 ):
-                logger.error(f"invalid record {record} in line {csvreader.line_num}")
+                logging.error(f"invalid record {record} in line {csvreader.line_num}")
     return ec2Instances
             
-def validateTags(client, awsTags, ec2Instances):
+def validateTags(client, awsInstances, csvInstances):
     '''Validates the tags of a list of EC2 instances, should print a list of all deviations.
     '''
-    logging.error("validateTags not yet implemented")
+    for instance in csvInstances:
+        instanceExists = (instance in awsInstances)
+        logging.info(f"Instance {instance} exists in AWS: {instanceExists}")
+        if instanceExists:
+            awsInstance = awsInstances[instance] 
+            for tag in csvInstances[instance].get_tags():
+                if tag in awsInstance.get_tags():
+                    logging.info(f"{instance}:{tag.get_key()} consistent")   
+                else:
+                    logging.warning(f"{instance}:{tag.get_key()} not consistent")
     return False
 
 if __name__=="__main__":
