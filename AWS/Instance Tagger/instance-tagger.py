@@ -30,18 +30,31 @@ class EC2Instance:
         self.primaryIP = ""
         self.ami = ""
         self.state = ""
+        self.keyName = ""
+        self.platform = ""
     def get_instanceId(self):
         return self.instanceId
     def add_tag(self, tag):
         self.tags.append(tag)
     def get_tags(self):
         return self.tags
+    def get_tag(self, tagname):
+        for tag in self.tags:
+            return tag if tag.get_key() == tagname else None
     def getPrimIP(self):
         return self.primaryIP
     def getAmiID(self):
         return self.ami
     def getState(self):
         return self.state
+    def getKeyName(self):
+        return self.keyName
+    def getPlatform(self):
+        return self.platform
+    def setPlatform(self, platform):
+        self.platform=platform
+    def setKeyName(self, keyName):
+        self.keyName=keyName
     def setPrimIP(self, primIp):
         self.primaryIP=primIp
     def setAmiID(self, amiID):
@@ -92,6 +105,8 @@ def getInstanceDetails():
     for instance in ec2.instances.all():
         ec2Instances[instance.id].setPrimIP(instance.private_ip_address)
         ec2Instances[instance.id].setAmiID(instance.image_id)
+        ec2Instances[instance.id].setKeyName(instance.key_name)
+        ec2Instances[instance.id].setPlatform(instance.platform)
         ec2Instances[instance.id].setState(instance.state['Name'])
     return ec2Instances
 
@@ -100,7 +115,7 @@ def printTags(ec2Instances):
     return False
 
 def printDetailed(ec2Instances):
-    [[logging.info(f'"{instance.get_instanceId()}","{instance.getState()}","{instance.getPrimIP()}","{instance.getAmiID()}","{tag.get_key()}","{tag.get_value()}"') for tag in instance.get_tags()] for instance in ec2Instances.values()]
+    [logging.info(f'"{instance.get_instanceId()}","{instance.getState()}","{instance.getPrimIP()}","{instance.getAmiID()}","{instance.getKeyName()}","{instance.getPlatform()}","{instance.get_tag("Name").get_value() if instance.get_tag("Name") else None}"') for instance in ec2Instances.values()]
     return False
 
 def parseTagsCsv(csvFile):
