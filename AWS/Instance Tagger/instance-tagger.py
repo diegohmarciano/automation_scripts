@@ -27,12 +27,27 @@ class EC2Instance:
     def __init__(self, instanceId, tags=[]):
         self.instanceId = instanceId
         self.tags = tags  # creates a new empty list for of tags for the instance
+        self.primaryIP = ""
+        self.ami = ""
+        self.state = ""
     def get_instanceId(self):
         return self.instanceId
     def add_tag(self, tag):
         self.tags.append(tag)
     def get_tags(self):
         return self.tags
+    def getPrimIP(self):
+        return self.primaryIP
+    def getAmiID(self):
+        return self.ami
+    def getState(self):
+        return self.state
+    def setPrimIP(self, primIp):
+        self.primaryIP=primIp
+    def setAmiID(self, amiID):
+        self.ami=amiID
+    def setState(self, state):
+        self.state=state
     def __repr__(self):
         return f"""(Resources=[
             {self.get_instanceId()},
@@ -69,8 +84,23 @@ def getTags():
         ec2Instances[instance.id] = EC2Instance(instance.id, [EC2Tag(tag["Key"], tag["Value"]) for tag in instance.tags])
     return ec2Instances
 
+def getInstanceDetails():
+    '''Prints the tags of all EC2 instances
+    '''
+    ec2Instances = getTags()
+    ec2 = boto3.resource('ec2')
+    for instance in ec2.instances.all():
+        ec2Instances[instance.id].setPrimIP(instance.private_ip_address)
+        ec2Instances[instance.id].setAmiID(instance.image_id)
+        ec2Instances[instance.id].setState(instance.state['Name'])
+    return ec2Instances
+
 def printTags(ec2Instances):
     [[logging.info(f'"{instance.get_instanceId()}","{tag.get_key()}","{tag.get_value()}"') for tag in instance.get_tags()] for instance in ec2Instances.values()]
+    return False
+
+def printDetailed(ec2Instances):
+    [[logging.info(f'"{instance.get_instanceId()}","{instance.getState()}","{instance.getPrimIP()}","{instance.getAmiID()}","{tag.get_key()}","{tag.get_value()}"') for tag in instance.get_tags()] for instance in ec2Instances.values()]
     return False
 
 def parseTagsCsv(csvFile):
@@ -114,6 +144,7 @@ if __name__=="__main__":
     parser.add_argument('-dr', '--dryrun', action='store_true', help="Dry Run flag, when step changes are not persisted")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-gt", "--gettags", action='count', help="Get all instance tags and print as CSV")
+    group.add_argument("-gd", "--getdetailed", action='count', help="Get all instance tags with instance details and print as CSV")
     group.add_argument("-ut", "--updatetags", type=str, help="Provide a CSV file and update all instance tags based on the file, format instance,tagname,tagvalue")
     group.add_argument("-vt", "--validatetags", type=str, help="Provide a CSV file and validate all instance tags based on the file, informs only deviations")
     args = parser.parse_args()
@@ -121,6 +152,8 @@ if __name__=="__main__":
     client = boto3.client('ec2')
     if ( args.gettags ):
         printTags(getTags())
+    elif ( args.getdetailed ):
+        printDetailed(getInstanceDetails())
     elif ( args.updatetags ):
             [updateInstanceTags(client, ec2Instance, args.dryrun) for ec2Instance in parseTagsCsv(args.updatetags).values()]
     elif ( args.validatetags ):
