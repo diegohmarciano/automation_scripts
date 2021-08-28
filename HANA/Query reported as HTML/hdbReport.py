@@ -33,7 +33,7 @@ mxServer = args.smtp
 msg = MIMEMultipart('alternative')
 msg['From'] = me
 msg['To'] = you
-msg['Subject'] = "PG1 REPORT {0}".format(datetime.today().strftime('%Y-%m-%d'))
+msg['Subject'] = "REPORT {0}".format(datetime.today().strftime('%Y-%m-%d'))
 
 #verify the architecture of Python
 print ("Platform architecture: " + platform.architecture()[0])
